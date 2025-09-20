@@ -1,0 +1,10 @@
+# https://dev.to/pixiebrix/disable-a-direct-push-to-github-main-branch-8c2
+# .pre-commit-config.yaml
+# - sudo apt install pre-commit
+# - pre-commit install
+repos:
+#  - repo: https://github.com/pre-commit/pre-commit-hooks
+#    rev: v4.1.0
+#    hooks:
+#      - id: no-commit-to-branch
+
