@@ -32,10 +32,10 @@ type queryCacheKey struct {
 
 var queryCache = dot.SyncStore[queryCacheKey, string]{}
 
-func WriteFieldInfoListNames(writer io.StringWriter, list dbs.FieldInfoList, separator string) {
+func WriteFieldInfoListNames(writer io.StringWriter, list dbs.FieldInfoList, sepaPrefix string) {
 	for idx := range list {
 		if idx > 0 {
-			_, _ = writer.WriteString(separator)
+			_, _ = writer.WriteString(sepaPrefix)
 		}
 		_, _ = writer.WriteString(list[idx].Name)
 	}
@@ -51,10 +51,10 @@ func WriteFieldInfoListIdxs(writer io.StringWriter, list dbs.FieldInfoList, star
 	}
 }
 
-func WriteFieldInfoListEQs(writer io.StringWriter, list dbs.FieldInfoList, startIdx int, separator string) {
+func WriteFieldInfoListEQs(writer io.StringWriter, list dbs.FieldInfoList, startIdx int, sepaPrefix string) {
 	for idx := range list {
 		if idx > 0 {
-			_, _ = writer.WriteString(separator)
+			_, _ = writer.WriteString(sepaPrefix)
 		}
 		_, _ = writer.WriteString(list[idx].Name)
 		_, _ = writer.WriteString("=$")
@@ -73,15 +73,15 @@ func (PGAdapter) InsertOneQuery(info *dbs.StructInfo) string {
 
 		allFields := info.AllFields()
 		sb.Grow(50 + len(allFields)*3*DefaultFieldNameLength)
-		sb.WriteString("INSERT INTO ")
-		sb.WriteString(info.TableName())
-		sb.WriteString(" (")
+		_, _ = sb.WriteString("INSERT INTO ")
+		_, _ = sb.WriteString(info.TableName())
+		_, _ = sb.WriteString(" (")
 		WriteFieldInfoListNames(&sb, info.NonAutoFields(), ", ")
-		sb.WriteString(") VALUES ($")
+		_, _ = sb.WriteString(") VALUES ($")
 		WriteFieldInfoListIdxs(&sb, info.NonAutoFields(), 1, ", $")
-		sb.WriteString(") RETUNING (")
+		_, _ = sb.WriteString(") RETUNING (")
 		WriteFieldInfoListNames(&sb, allFields, ", ")
-		sb.WriteString(");")
+		_, _ = sb.WriteString(");")
 
 		return sb.String()
 	})
@@ -95,13 +95,13 @@ func (PGAdapter) SelectOneQuery(info *dbs.StructInfo) string {
 		pkFields := info.PKFields()
 		sb.Grow(30 + len(allFields)*2*DefaultFieldNameLength + len(pkFields)*DefaultFieldNameLength)
 
-		sb.WriteString("SELECT ")
+		_, _ = sb.WriteString("SELECT ")
 		WriteFieldInfoListNames(&sb, allFields, ", ")
-		sb.WriteString(" FROM ")
-		sb.WriteString(info.TableName())
-		sb.WriteString(" WHERE ")
+		_, _ = sb.WriteString(" FROM ")
+		_, _ = sb.WriteString(info.TableName())
+		_, _ = sb.WriteString(" WHERE ")
 		WriteFieldInfoListEQs(&sb, pkFields, 1, " AND ")
-		sb.WriteString(" LIMIT 1;")
+		_, _ = sb.WriteString(" LIMIT 1;")
 
 		return sb.String()
 	})
@@ -114,15 +114,15 @@ func (PGAdapter) UpdateOneQuery(info *dbs.StructInfo) string {
 		allFields := info.AllFields()
 		nonPkFields := info.NonPKFields()
 		sb.Grow(40 + len(allFields)*3*DefaultFieldNameLength)
-		sb.WriteString("UPDATE ")
-		sb.WriteString(info.TableName())
-		sb.WriteString(" SET ")
+		_, _ = sb.WriteString("UPDATE ")
+		_, _ = sb.WriteString(info.TableName())
+		_, _ = sb.WriteString(" SET ")
 		WriteFieldInfoListEQs(&sb, nonPkFields, 1, ", ")
-		sb.WriteString(" WHERE ")
+		_, _ = sb.WriteString(" WHERE ")
 		WriteFieldInfoListEQs(&sb, info.PKFields(), len(nonPkFields)+1, " AND ")
-		sb.WriteString(" RETUNING (")
+		_, _ = sb.WriteString(" RETUNING (")
 		WriteFieldInfoListNames(&sb, allFields, ", ")
-		sb.WriteString(");")
+		_, _ = sb.WriteString(");")
 
 		return sb.String()
 	})
@@ -134,11 +134,11 @@ func (PGAdapter) DeleteOneQuery(info *dbs.StructInfo) string {
 
 		pkFields := info.PKFields()
 		sb.Grow(20 + len(pkFields)*2*DefaultFieldNameLength)
-		sb.WriteString("DELETE FROM ")
-		sb.WriteString(info.TableName())
-		sb.WriteString(" WHERE ")
+		_, _ = sb.WriteString("DELETE FROM ")
+		_, _ = sb.WriteString(info.TableName())
+		_, _ = sb.WriteString(" WHERE ")
 		WriteFieldInfoListEQs(&sb, info.PKFields(), 1, " AND ")
-		sb.WriteString(";")
+		_, _ = sb.WriteString(";")
 
 		return sb.String()
 	})
