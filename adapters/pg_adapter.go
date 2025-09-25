@@ -87,6 +87,14 @@ func (PGAdapter) InsertOneQuery(info *dbs.StructInfo) string {
 	})
 }
 
+func (PGAdapter) InsertOneArgs(info *dbs.StructInfo, src any) ([]any, error) {
+	return info.NonAutoFields().Refs(src)
+}
+
+func (PGAdapter) InsertOneReceivers(info *dbs.StructInfo, dest any) ([]any, error) {
+	return info.AllFields().Refs(dest)
+}
+
 func (PGAdapter) SelectOneQuery(info *dbs.StructInfo) string {
 	return queryCache.GetOrPut(queryCacheKey{Type: info.Type(), Kind: queryKindSelectOne}, func() string {
 		var sb strings.Builder
@@ -105,6 +113,14 @@ func (PGAdapter) SelectOneQuery(info *dbs.StructInfo) string {
 
 		return sb.String()
 	})
+}
+
+func (PGAdapter) SelectOneArgs(info *dbs.StructInfo, src any) ([]any, error) {
+	return info.PKFields().Refs(src)
+}
+
+func (PGAdapter) SelectOneReceivers(info *dbs.StructInfo, dest any) ([]any, error) {
+	return info.AllFields().Refs(dest)
 }
 
 func (PGAdapter) UpdateOneQuery(info *dbs.StructInfo) string {
@@ -128,18 +144,45 @@ func (PGAdapter) UpdateOneQuery(info *dbs.StructInfo) string {
 	})
 }
 
+func (PGAdapter) UpdateOneArgs(info *dbs.StructInfo, src any) ([]any, error) {
+	npk, err := info.NonPKFields().Refs(src)
+	if err != nil {
+		return nil, err
+	}
+	pks, err := info.PKFields().Refs(src)
+	if err != nil {
+		return nil, err
+	}
+	return append(npk, pks...), nil
+}
+
+func (PGAdapter) UpdateOneReceivers(info *dbs.StructInfo, dest any) ([]any, error) {
+	return info.AllFields().Refs(dest)
+}
+
 func (PGAdapter) DeleteOneQuery(info *dbs.StructInfo) string {
 	return queryCache.GetOrPut(queryCacheKey{Type: info.Type(), Kind: queryKindDeleteOne}, func() string {
 		var sb strings.Builder
 
+		allFields := info.AllFields()
 		pkFields := info.PKFields()
 		sb.Grow(20 + len(pkFields)*2*DefaultFieldNameLength)
 		_, _ = sb.WriteString("DELETE FROM ")
 		_, _ = sb.WriteString(info.TableName())
 		_, _ = sb.WriteString(" WHERE ")
 		WriteFieldInfoListEQs(&sb, info.PKFields(), 1, " AND ")
-		_, _ = sb.WriteString(";")
+		_, _ = sb.WriteString(" RETUNING (")
+		WriteFieldInfoListNames(&sb, allFields, ", ")
+		_, _ = sb.WriteString(");")
 
 		return sb.String()
 	})
+}
+
+func (PGAdapter) DeleteOneArgs(info *dbs.StructInfo, src any) ([]any, error) {
+	return info.PKFields().Refs(src)
+}
+
+func (PGAdapter) DeleteOneReceivers(info *dbs.StructInfo, dest any) ([]any, error) {
+	return info.AllFields().Refs(dest)
 }
