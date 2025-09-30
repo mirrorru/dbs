@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"github.com/mirrorru/dot"
-	dot_rpck "github.com/mirrorru/dot/repack"
 )
 
 var (
@@ -176,7 +175,7 @@ func makeFieldInfo(field reflect.StructField, cfg fieldConfig) FieldInfo {
 		fieldConfig: cfg,
 	}
 	if result.Name == "" {
-		result.Name = dot_rpck.ToSnakeCase(field.Name)
+		result.Name = dot.ToSnakeCase(field.Name)
 	}
 
 	return result
