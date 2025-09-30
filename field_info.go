@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/lib/pq"
-	dot_rpck "github.com/mirrorru/dot/repack"
+	"github.com/mirrorru/dot"
 )
 
 const (
@@ -64,7 +64,7 @@ func makeFieldConfig(field reflect.StructField) fieldConfig {
 		}
 	}
 	if result.Name == "" {
-		result.Name = dot_rpck.ToSnakeCase(field.Name)
+		result.Name = dot.ToSnakeCase(field.Name)
 	}
 	return result
 }
