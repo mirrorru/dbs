@@ -79,7 +79,7 @@ func (PGAdapter) InsertOneQuery(info *dbs.StructInfo) string {
 		WriteFieldInfoListNames(&sb, info.NonAutoFields(), ", ")
 		_, _ = sb.WriteString(") VALUES ($")
 		WriteFieldInfoListIdxs(&sb, info.NonAutoFields(), 1, ", $")
-		_, _ = sb.WriteString(") RETUNING (")
+		_, _ = sb.WriteString(") RETURNING (")
 		WriteFieldInfoListNames(&sb, allFields, ", ")
 		_, _ = sb.WriteString(");")
 
@@ -87,11 +87,11 @@ func (PGAdapter) InsertOneQuery(info *dbs.StructInfo) string {
 	})
 }
 
-func (PGAdapter) InsertOneArgs(info *dbs.StructInfo, src any) ([]any, error) {
+func InsertOneArgs[T any](info *dbs.StructInfo, src *T) ([]any, error) {
 	return info.NonAutoFields().Refs(src)
 }
 
-func (PGAdapter) InsertOneReceivers(info *dbs.StructInfo, dest any) ([]any, error) {
+func InsertOneReceivers[T any](info *dbs.StructInfo, dest *T) ([]any, error) {
 	return info.AllFields().Refs(dest)
 }
 
@@ -115,11 +115,27 @@ func (PGAdapter) SelectOneQuery(info *dbs.StructInfo) string {
 	})
 }
 
-func (PGAdapter) SelectOneArgs(info *dbs.StructInfo, src any) ([]any, error) {
+func (PGAdapter) SelectManyQuery(info *dbs.StructInfo) string {
+	return queryCache.GetOrPut(queryCacheKey{Type: info.Type(), Kind: queryKindSelectOne}, func() string {
+		var sb strings.Builder
+
+		allFields := info.AllFields()
+		sb.Grow(30 + len(allFields)*2*DefaultFieldNameLength)
+
+		_, _ = sb.WriteString("SELECT ")
+		WriteFieldInfoListNames(&sb, allFields, ", ")
+		_, _ = sb.WriteString(" FROM ")
+		_, _ = sb.WriteString(info.TableName())
+
+		return sb.String()
+	})
+}
+
+func SelectOneArgs[T any](info *dbs.StructInfo, src *T) ([]any, error) {
 	return info.PKFields().Refs(src)
 }
 
-func (PGAdapter) SelectOneReceivers(info *dbs.StructInfo, dest any) ([]any, error) {
+func SelectOneReceivers[T any](info *dbs.StructInfo, dest *T) ([]any, error) {
 	return info.AllFields().Refs(dest)
 }
 
@@ -136,7 +152,7 @@ func (PGAdapter) UpdateOneQuery(info *dbs.StructInfo) string {
 		WriteFieldInfoListEQs(&sb, nonPkFields, 1, ", ")
 		_, _ = sb.WriteString(" WHERE ")
 		WriteFieldInfoListEQs(&sb, info.PKFields(), len(nonPkFields)+1, " AND ")
-		_, _ = sb.WriteString(" RETUNING (")
+		_, _ = sb.WriteString(" RETURNING (")
 		WriteFieldInfoListNames(&sb, allFields, ", ")
 		_, _ = sb.WriteString(");")
 
@@ -144,7 +160,7 @@ func (PGAdapter) UpdateOneQuery(info *dbs.StructInfo) string {
 	})
 }
 
-func (PGAdapter) UpdateOneArgs(info *dbs.StructInfo, src any) ([]any, error) {
+func UpdateOneArgs[T any](info *dbs.StructInfo, src *T) ([]any, error) {
 	npk, err := info.NonPKFields().Refs(src)
 	if err != nil {
 		return nil, err
@@ -156,7 +172,7 @@ func (PGAdapter) UpdateOneArgs(info *dbs.StructInfo, src any) ([]any, error) {
 	return append(npk, pks...), nil
 }
 
-func (PGAdapter) UpdateOneReceivers(info *dbs.StructInfo, dest any) ([]any, error) {
+func UpdateOneReceivers[T any](info *dbs.StructInfo, dest *T) ([]any, error) {
 	return info.AllFields().Refs(dest)
 }
 
@@ -171,7 +187,7 @@ func (PGAdapter) DeleteOneQuery(info *dbs.StructInfo) string {
 		_, _ = sb.WriteString(info.TableName())
 		_, _ = sb.WriteString(" WHERE ")
 		WriteFieldInfoListEQs(&sb, info.PKFields(), 1, " AND ")
-		_, _ = sb.WriteString(" RETUNING (")
+		_, _ = sb.WriteString(" RETURNING (")
 		WriteFieldInfoListNames(&sb, allFields, ", ")
 		_, _ = sb.WriteString(");")
 
@@ -179,10 +195,10 @@ func (PGAdapter) DeleteOneQuery(info *dbs.StructInfo) string {
 	})
 }
 
-func (PGAdapter) DeleteOneArgs(info *dbs.StructInfo, src any) ([]any, error) {
+func DeleteOneArgs[T any](info *dbs.StructInfo, src *T) ([]any, error) {
 	return info.PKFields().Refs(src)
 }
 
-func (PGAdapter) DeleteOneReceivers(info *dbs.StructInfo, dest any) ([]any, error) {
+func DeleteOneReceivers[T any](info *dbs.StructInfo, dest *T) ([]any, error) {
 	return info.AllFields().Refs(dest)
 }
