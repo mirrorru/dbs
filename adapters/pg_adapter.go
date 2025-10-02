@@ -79,9 +79,8 @@ func (PGAdapter) InsertOneQuery(info *dbs.StructInfo) string {
 		WriteFieldInfoListNames(&sb, info.NonAutoFields(), ", ")
 		_, _ = sb.WriteString(") VALUES ($")
 		WriteFieldInfoListIdxs(&sb, info.NonAutoFields(), 1, ", $")
-		_, _ = sb.WriteString(") RETURNING (")
+		_, _ = sb.WriteString(") RETURNING ")
 		WriteFieldInfoListNames(&sb, allFields, ", ")
-		_, _ = sb.WriteString(");")
 
 		return sb.String()
 	})
@@ -152,9 +151,8 @@ func (PGAdapter) UpdateOneQuery(info *dbs.StructInfo) string {
 		WriteFieldInfoListEQs(&sb, nonPkFields, 1, ", ")
 		_, _ = sb.WriteString(" WHERE ")
 		WriteFieldInfoListEQs(&sb, info.PKFields(), len(nonPkFields)+1, " AND ")
-		_, _ = sb.WriteString(" RETURNING (")
+		_, _ = sb.WriteString(" RETURNING ")
 		WriteFieldInfoListNames(&sb, allFields, ", ")
-		_, _ = sb.WriteString(");")
 
 		return sb.String()
 	})
@@ -187,9 +185,8 @@ func (PGAdapter) DeleteOneQuery(info *dbs.StructInfo) string {
 		_, _ = sb.WriteString(info.TableName())
 		_, _ = sb.WriteString(" WHERE ")
 		WriteFieldInfoListEQs(&sb, info.PKFields(), 1, " AND ")
-		_, _ = sb.WriteString(" RETURNING (")
+		_, _ = sb.WriteString(" RETURNING ")
 		WriteFieldInfoListNames(&sb, allFields, ", ")
-		_, _ = sb.WriteString(");")
 
 		return sb.String()
 	})
