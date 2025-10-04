@@ -53,37 +53,39 @@ func (PGAdapter) SelectOneQuery(info *dbs.StructInfo) string {
 }
 
 func (PGAdapter) SelectManyQuery(info *dbs.StructInfo, opts QueryOptions) string {
-	return queryCache.GetOrPut(queryCacheKey{Type: info.Type(), Kind: queryKindSelectOne, QueryOptions: opts}, func() string {
-		var sb strings.Builder
+	return queryCache.GetOrPut(
+		queryCacheKey{Type: info.Type(), Kind: queryKindSelectOne, QueryOptions: opts},
+		func() string {
+			var sb strings.Builder
 
-		allFields := info.AllFields()
-		sb.Grow(30 + (len(allFields)+1)*2*(DefaultFieldNameLength+len(opts.WithAlias)))
+			allFields := info.AllFields()
+			sb.Grow(30 + (len(allFields)+1)*2*(DefaultFieldNameLength+len(opts.WithAlias)))
 
-		prefix := ", "
-		_, _ = sb.WriteString("SELECT ")
-		if len(opts.WithAlias) > 0 {
-			_, _ = sb.WriteString(opts.WithAlias)
-			_, _ = sb.WriteString(".")
-			prefix += opts.WithAlias + "."
-		}
-		WriteFieldInfoListNames(&sb, allFields, prefix)
-		if opts.WithTotals {
-			_, _ = sb.WriteString(", COUNT(")
+			prefix := ", "
+			_, _ = sb.WriteString("SELECT ")
 			if len(opts.WithAlias) > 0 {
 				_, _ = sb.WriteString(opts.WithAlias)
 				_, _ = sb.WriteString(".")
+				prefix += opts.WithAlias + "."
 			}
-			_, _ = sb.WriteString("*) OVER()")
-		}
-		_, _ = sb.WriteString(" FROM ")
-		_, _ = sb.WriteString(info.TableName())
-		if len(opts.WithAlias) > 0 {
-			_, _ = sb.WriteString(" ")
-			_, _ = sb.WriteString(opts.WithAlias)
-		}
+			WriteFieldInfoListNames(&sb, allFields, prefix)
+			if opts.WithTotals {
+				_, _ = sb.WriteString(", COUNT(")
+				if len(opts.WithAlias) > 0 {
+					_, _ = sb.WriteString(opts.WithAlias)
+					_, _ = sb.WriteString(".")
+				}
+				_, _ = sb.WriteString("*) OVER()")
+			}
+			_, _ = sb.WriteString(" FROM ")
+			_, _ = sb.WriteString(info.TableName())
+			if len(opts.WithAlias) > 0 {
+				_, _ = sb.WriteString(" ")
+				_, _ = sb.WriteString(opts.WithAlias)
+			}
 
-		return sb.String()
-	})
+			return sb.String()
+		})
 }
 
 func (PGAdapter) UpdateOneQuery(info *dbs.StructInfo) string {

@@ -43,82 +43,35 @@ func testRecNonPKRefs(rec *TestRec) []any {
 	return []any{&rec.TestBody.Kind, &rec.TestBody.Name, &rec.AuxField}
 }
 
-func TestInsertOneArgs(t *testing.T) {
+func Test_ArgsAndReceivers(t *testing.T) {
 	t.Parallel()
-	var rec TestRec
-	si, err := dbs.NewStructInfo(rec)
-	require.NoError(t, err)
-	refs, err := adapters.InsertOneArgs(si, &rec)
-	require.NoError(t, err)
-	assert.Equal(t, testRecNonPKRefs(&rec), refs)
-}
 
-func TestInsertOneReceivers(t *testing.T) {
-	t.Parallel()
 	var rec TestRec
 	si, err := dbs.NewStructInfo(rec)
 	require.NoError(t, err)
-	refs, err := adapters.InsertOneReceivers(si, &rec)
-	require.NoError(t, err)
-	assert.Equal(t, testRecAllRefs(&rec), refs)
-}
 
-func TestSelectOneArgs(t *testing.T) {
-	t.Parallel()
-	var rec TestRec
-	si, err := dbs.NewStructInfo(rec)
-	require.NoError(t, err)
-	refs, err := adapters.SelectOneArgs(si, &rec)
-	require.NoError(t, err)
-	assert.Equal(t, testRecPKRefs(&rec), refs)
-}
-
-func TestSelectOneReceivers(t *testing.T) {
-	t.Parallel()
-	var rec TestRec
-	si, err := dbs.NewStructInfo(rec)
-	require.NoError(t, err)
-	refs, err := adapters.SelectOneReceivers(si, &rec)
-	require.NoError(t, err)
-	assert.Equal(t, testRecAllRefs(&rec), refs)
-}
-
-func TestUpdateOneArgs(t *testing.T) {
-	t.Parallel()
-	var rec TestRec
-	si, err := dbs.NewStructInfo(rec)
-	require.NoError(t, err)
-	refs, err := adapters.UpdateOneArgs(si, &rec)
-	require.NoError(t, err)
-	assert.Equal(t, append(testRecNonPKRefs(&rec), testRecPKRefs(&rec)...), refs)
-}
-
-func TestUpdateOneReceivers(t *testing.T) {
-	t.Parallel()
-	var rec TestRec
-	si, err := dbs.NewStructInfo(rec)
-	require.NoError(t, err)
-	refs, err := adapters.UpdateOneReceivers(si, &rec)
-	require.NoError(t, err)
-	assert.Equal(t, testRecAllRefs(&rec), refs)
-}
-
-func TestDeleteOneArgs(t *testing.T) {
-	t.Parallel()
-	var rec TestRec
-	si, err := dbs.NewStructInfo(rec)
-	require.NoError(t, err)
-	refs, err := adapters.DeleteOneArgs(si, &rec)
-	require.NoError(t, err)
-	assert.Equal(t, testRecPKRefs(&rec), refs)
-}
-
-func TestDeleteOneReceivers(t *testing.T) {
-	t.Parallel()
-	var rec TestRec
-	si, err := dbs.NewStructInfo(rec)
-	require.NoError(t, err)
-	refs, err := adapters.DeleteOneReceivers(si, &rec)
-	require.NoError(t, err)
-	assert.Equal(t, testRecAllRefs(&rec), refs)
+	tests := []struct {
+		name string
+		fn   func(info *dbs.StructInfo, src *TestRec) ([]any, error)
+		need []any
+	}{
+		{name: "InsertOneArgs", fn: adapters.InsertOneArgs[TestRec], need: testRecNonPKRefs(&rec)},
+		{name: "InsertOneReceivers", fn: adapters.InsertOneReceivers[TestRec], need: testRecAllRefs(&rec)},
+		{name: "SelectOneArgs", fn: adapters.SelectOneArgs[TestRec], need: testRecPKRefs(&rec)},
+		{name: "SelectOneReceivers", fn: adapters.SelectOneReceivers[TestRec], need: testRecAllRefs(&rec)},
+		{name: "UpdateOneArgs",
+			fn:   adapters.UpdateOneArgs[TestRec],
+			need: append(testRecNonPKRefs(&rec), testRecPKRefs(&rec)...)},
+		{name: "UpdateOneReceivers", fn: adapters.UpdateOneReceivers[TestRec], need: testRecAllRefs(&rec)},
+		{name: "DeleteOneArgs", fn: adapters.DeleteOneArgs[TestRec], need: testRecPKRefs(&rec)},
+		{name: "DeleteOneReceivers", fn: adapters.DeleteOneReceivers[TestRec], need: testRecAllRefs(&rec)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			refs, errFn := tt.fn(si, &rec)
+			require.NoError(t, errFn)
+			assert.Equal(t, tt.need, refs)
+		})
+	}
 }
