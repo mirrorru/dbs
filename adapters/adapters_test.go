@@ -27,6 +27,7 @@ type TestRec struct {
 	TestKey
 	TestBody
 	testPrivateData
+
 	AuxField time.Time
 }
 

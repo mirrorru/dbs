@@ -22,9 +22,10 @@ const (
 )
 
 type queryCacheKey struct {
+	QueryOptions
+
 	Type reflect.Type
 	Kind queryKind
-	QueryOptions
 }
 
 type QueryOptions struct {
