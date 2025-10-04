@@ -1,66 +1,12 @@
 package adapters
 
 import (
-	"io"
-	"reflect"
-	"strconv"
 	"strings"
 
 	"github.com/mirrorru/dbs"
-	"github.com/mirrorru/dot"
 )
-
-// DefaultFieldNameLength ожидаемая длина имени поля, используется для выделения памяти при создании запросов
-var DefaultFieldNameLength = 20
 
 type PGAdapter struct {
-}
-
-type queryKind byte
-
-const (
-	queryKindInsertOne queryKind = iota
-	queryKindSelectOne
-	queryKindUpdateOne
-	queryKindDeleteOne
-)
-
-type queryCacheKey struct {
-	Type reflect.Type
-	Kind queryKind
-}
-
-var queryCache = dot.SyncStore[queryCacheKey, string]{}
-
-func WriteFieldInfoListNames(writer io.StringWriter, list dbs.FieldInfoList, sepaPrefix string) {
-	for idx := range list {
-		if idx > 0 {
-			_, _ = writer.WriteString(sepaPrefix)
-		}
-		_, _ = writer.WriteString(list[idx].Name)
-	}
-}
-
-func WriteFieldInfoListIdxs(writer io.StringWriter, list dbs.FieldInfoList, startIdx int, separator string) {
-	for idx := range list {
-		if idx > 0 {
-			_, _ = writer.WriteString(separator)
-		}
-		_, _ = writer.WriteString(strconv.Itoa(startIdx))
-		startIdx++
-	}
-}
-
-func WriteFieldInfoListEQs(writer io.StringWriter, list dbs.FieldInfoList, startIdx int, sepaPrefix string) {
-	for idx := range list {
-		if idx > 0 {
-			_, _ = writer.WriteString(sepaPrefix)
-		}
-		_, _ = writer.WriteString(list[idx].Name)
-		_, _ = writer.WriteString("=$")
-		_, _ = writer.WriteString(strconv.Itoa(startIdx))
-		startIdx++
-	}
 }
 
 func (PGAdapter) CanReturnValuesInDML() bool {
@@ -86,14 +32,6 @@ func (PGAdapter) InsertOneQuery(info *dbs.StructInfo) string {
 	})
 }
 
-func InsertOneArgs[T any](info *dbs.StructInfo, src *T) ([]any, error) {
-	return info.NonAutoFields().Refs(src)
-}
-
-func InsertOneReceivers[T any](info *dbs.StructInfo, dest *T) ([]any, error) {
-	return info.AllFields().Refs(dest)
-}
-
 func (PGAdapter) SelectOneQuery(info *dbs.StructInfo) string {
 	return queryCache.GetOrPut(queryCacheKey{Type: info.Type(), Kind: queryKindSelectOne}, func() string {
 		var sb strings.Builder
@@ -114,28 +52,40 @@ func (PGAdapter) SelectOneQuery(info *dbs.StructInfo) string {
 	})
 }
 
-func (PGAdapter) SelectManyQuery(info *dbs.StructInfo) string {
-	return queryCache.GetOrPut(queryCacheKey{Type: info.Type(), Kind: queryKindSelectOne}, func() string {
-		var sb strings.Builder
+func (PGAdapter) SelectManyQuery(info *dbs.StructInfo, opts QueryOptions) string {
+	return queryCache.GetOrPut(
+		queryCacheKey{Type: info.Type(), Kind: queryKindSelectOne, QueryOptions: opts},
+		func() string {
+			var sb strings.Builder
 
-		allFields := info.AllFields()
-		sb.Grow(30 + len(allFields)*2*DefaultFieldNameLength)
+			allFields := info.AllFields()
+			sb.Grow(30 + (len(allFields)+1)*2*(DefaultFieldNameLength+len(opts.WithAlias)))
 
-		_, _ = sb.WriteString("SELECT ")
-		WriteFieldInfoListNames(&sb, allFields, ", ")
-		_, _ = sb.WriteString(" FROM ")
-		_, _ = sb.WriteString(info.TableName())
+			prefix := ", "
+			_, _ = sb.WriteString("SELECT ")
+			if len(opts.WithAlias) > 0 {
+				_, _ = sb.WriteString(opts.WithAlias)
+				_, _ = sb.WriteString(".")
+				prefix += opts.WithAlias + "."
+			}
+			WriteFieldInfoListNames(&sb, allFields, prefix)
+			if opts.WithTotals {
+				_, _ = sb.WriteString(", COUNT(")
+				if len(opts.WithAlias) > 0 {
+					_, _ = sb.WriteString(opts.WithAlias)
+					_, _ = sb.WriteString(".")
+				}
+				_, _ = sb.WriteString("*) OVER()")
+			}
+			_, _ = sb.WriteString(" FROM ")
+			_, _ = sb.WriteString(info.TableName())
+			if len(opts.WithAlias) > 0 {
+				_, _ = sb.WriteString(" ")
+				_, _ = sb.WriteString(opts.WithAlias)
+			}
 
-		return sb.String()
-	})
-}
-
-func SelectOneArgs[T any](info *dbs.StructInfo, src *T) ([]any, error) {
-	return info.PKFields().Refs(src)
-}
-
-func SelectOneReceivers[T any](info *dbs.StructInfo, dest *T) ([]any, error) {
-	return info.AllFields().Refs(dest)
+			return sb.String()
+		})
 }
 
 func (PGAdapter) UpdateOneQuery(info *dbs.StructInfo) string {
@@ -158,22 +108,6 @@ func (PGAdapter) UpdateOneQuery(info *dbs.StructInfo) string {
 	})
 }
 
-func UpdateOneArgs[T any](info *dbs.StructInfo, src *T) ([]any, error) {
-	npk, err := info.NonPKFields().Refs(src)
-	if err != nil {
-		return nil, err
-	}
-	pks, err := info.PKFields().Refs(src)
-	if err != nil {
-		return nil, err
-	}
-	return append(npk, pks...), nil
-}
-
-func UpdateOneReceivers[T any](info *dbs.StructInfo, dest *T) ([]any, error) {
-	return info.AllFields().Refs(dest)
-}
-
 func (PGAdapter) DeleteOneQuery(info *dbs.StructInfo) string {
 	return queryCache.GetOrPut(queryCacheKey{Type: info.Type(), Kind: queryKindDeleteOne}, func() string {
 		var sb strings.Builder
@@ -190,12 +124,4 @@ func (PGAdapter) DeleteOneQuery(info *dbs.StructInfo) string {
 
 		return sb.String()
 	})
-}
-
-func DeleteOneArgs[T any](info *dbs.StructInfo, src *T) ([]any, error) {
-	return info.PKFields().Refs(src)
-}
-
-func DeleteOneReceivers[T any](info *dbs.StructInfo, dest *T) ([]any, error) {
-	return info.AllFields().Refs(dest)
 }
