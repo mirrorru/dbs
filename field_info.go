@@ -24,6 +24,7 @@ type FieldInfo struct {
 	fieldConfig
 
 	index []int // Составной индекс поля в структуре
+	Type  reflect.Type
 }
 
 type fieldConfig struct {

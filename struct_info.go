@@ -110,6 +110,11 @@ func (s *StructInfo) TableName() string {
 	return s.tableName
 }
 
+func (s *StructInfo) PeekField(fieldName string) (fieldInfo FieldInfo, found bool) {
+	fieldInfo, found = s.name2field[fieldName]
+	return fieldInfo, found
+}
+
 func peekStructInfo(srcType reflect.Type) *StructInfo {
 	info := structInfoMap.GetOrPut(srcType, func() *StructInfo { return &StructInfo{} })
 	info.init(srcType)
@@ -173,6 +178,7 @@ func makeFieldInfo(field reflect.StructField, cfg fieldConfig) FieldInfo {
 	result := FieldInfo{
 		index:       field.Index,
 		fieldConfig: cfg,
+		Type:        field.Type,
 	}
 	if result.Name == "" {
 		result.Name = dot.ToSnakeCase(field.Name)
