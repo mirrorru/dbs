@@ -118,7 +118,7 @@ func peekStructInfo(srcType reflect.Type) *StructInfo {
 }
 
 //nolint:gocognit
-func getFieldInfo(t reflect.Type) (list FieldInfoList) {
+func getFieldInfo(t reflect.Type) FieldInfoList {
 	resultList := make(FieldInfoList, 0, t.NumField())
 	for i := range t.NumField() {
 		field := t.Field(i)

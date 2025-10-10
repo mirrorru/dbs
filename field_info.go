@@ -24,7 +24,6 @@ type FieldInfo struct {
 	publicFldConfig
 	Type  reflect.Type
 	index []int // Составной индекс поля в структуре
-	Type  reflect.Type
 }
 
 type fieldReference struct {
