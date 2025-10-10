@@ -21,22 +21,35 @@ const (
 
 // FieldInfo - Сведения проецирования поля структуры на поле БД
 type FieldInfo struct {
-	fieldConfig
-
+	publicFldConfig
+	Type  reflect.Type
 	index []int // Составной индекс поля в структуре
 }
 
-type fieldConfig struct {
-	Name      string // Имя поля в БД
-	Autogen   bool   // Значение поля генерируется самой БД
-	Inline    bool   // Надо ли представлять поле как единое целое или как набор полей
-	PK        bool   // Входит в первичный ключ
-	Reference bool
-	Nullable  bool
+type fieldReference struct {
+	StructInfo *StructInfo
+	FieldName  string
+}
+type jointFieldConfig struct {
+	publicFldConfig
+	privateFldConfig
 }
 
-func makeFieldConfig(field reflect.StructField) fieldConfig {
-	var result fieldConfig
+type privateFldConfig struct {
+	isReference bool // Ссылается на другую таблицу
+	isInline    bool // Надо ли представлять поле как единое целое или как набор полей
+}
+
+type publicFldConfig struct {
+	RefData    *fieldReference // Данные по ссылке на другие структуры
+	Name       string          // Имя поля в БД
+	IsAutogen  bool            // Значение поля генерируется самой БД
+	IsPK       bool            // Входит в первичный ключ
+	IsNullable bool            // Может ли быть NULL
+}
+
+func makeFieldConfig(field reflect.StructField) jointFieldConfig {
+	var result jointFieldConfig
 	if tag := field.Tag.Get(tagKey); tag != "" {
 		split := strings.Split(tag, ";")
 		for _, s := range split {
@@ -49,17 +62,17 @@ func makeFieldConfig(field reflect.StructField) fieldConfig {
 				}
 			case autoTagKey:
 				// Поле автоматически генерируется в БД
-				result.Autogen = true
+				result.IsAutogen = true
 			case inlineTagKey:
 				// Поля структуры вставляются в родителя
-				result.Inline = true
+				result.isInline = true
 			case primaryKeyTagKey:
 				// Поле входит в первичный колюч
-				result.PK = true
+				result.IsPK = true
 			case refTagKey:
-				result.Reference = true
+				result.isReference = true
 			case nullTagKey:
-				result.Nullable = true
+				result.IsNullable = true
 			}
 		}
 	}
