@@ -42,20 +42,24 @@ func NewStructInfo(src any) (*StructInfo, error) {
 		return nil, errStructBasedTypeNeeded
 	}
 
-	return peekStructInfo(srcType), nil
+	return peekStructInfo(srcType)
 }
 
-func (s *StructInfo) init(srcType reflect.Type) {
+var errStructInitFailure = errors.New("struct init failure")
+
+func (s *StructInfo) init(srcType reflect.Type) (err error) {
 	s.onceInit.Do(func() {
 		s.structType = srcType
 		structValue := reflect.New(s.structType)
 		if tableNamer, ok := structValue.Interface().(TableNamer); ok {
 			s.tableName = tableNamer.TableName()
 		} else {
-			s.tableName = s.structType.Name()
+			s.tableName = dot.ToSnakeCase(s.structType.Name())
 		}
 
-		s.allFields = getFieldInfo(s.structType)
+		if s.allFields, err = getFieldInfo(s.structType); err != nil {
+			return
+		}
 		s.pkFields = make(FieldInfoList, 0, 2)
 		s.autoFields = make(FieldInfoList, 0, 3)
 		s.nonPkFields = make(FieldInfoList, 0, len(s.allFields))
@@ -80,6 +84,10 @@ func (s *StructInfo) init(srcType reflect.Type) {
 			s.name2field[field.Name] = field
 		}
 	})
+	if s.name2field == nil {
+		err = errStructInitFailure
+	}
+	return err
 }
 
 func (s *StructInfo) Type() reflect.Type {
@@ -110,24 +118,32 @@ func (s *StructInfo) TableName() string {
 	return s.tableName
 }
 
-func peekStructInfo(srcType reflect.Type) *StructInfo {
-	info := structInfoMap.GetOrPut(srcType, func() *StructInfo { return &StructInfo{} })
-	info.init(srcType)
+func peekStructInfo(srcType reflect.Type) (*StructInfo, error) {
+	if srcType.Kind() != reflect.Struct {
+		return nil, errStructBasedTypeNeeded
+	}
 
-	return info
+	info := structInfoMap.GetOrPut(srcType, func() *StructInfo { return &StructInfo{} })
+	err := info.init(srcType)
+
+	return info, err
 }
 
 //nolint:gocognit
-func getFieldInfo(t reflect.Type) FieldInfoList {
-	resultList := make(FieldInfoList, 0, t.NumField())
+func getFieldInfo0(t reflect.Type) (resultList FieldInfoList, err error) {
+	resultList = make(FieldInfoList, 0, t.NumField())
 	for i := range t.NumField() {
+		var info *StructInfo
 		field := t.Field(i)
 		if !field.IsExported() {
 			continue // Пропускаем неэкспортируемые поля
 		}
 
-		if field.Anonymous {
-			info := peekStructInfo(field.Type)
+		if field.Anonymous && field.Type.Kind() != reflect.Ptr {
+			// Can't refer to fields of reference
+			if info, err = peekStructInfo(field.Type); err != nil {
+				return nil, err
+			}
 			for _, fld := range info.allFields {
 				fld.applyIndex(field.Index)
 				resultList = append(resultList, fld)
@@ -138,8 +154,11 @@ func getFieldInfo(t reflect.Type) FieldInfoList {
 
 		fieldCfg := makeFieldConfig(field)
 
-		if fieldCfg.isInline && field.Type.Kind() == reflect.Struct {
-			info := peekStructInfo(field.Type)
+		// Inline tag-directive
+		if fieldCfg.isInline && field.Type.Kind() != reflect.Ptr {
+			if info, err = peekStructInfo(field.Type); err != nil {
+				return nil, err
+			}
 			for _, fld := range info.allFields {
 				fld.applyIndex(field.Index)
 				fld.applyPrefix(fieldCfg.Name)
@@ -149,8 +168,14 @@ func getFieldInfo(t reflect.Type) FieldInfoList {
 			continue
 		}
 
-		if fieldCfg.isReference && (field.Type.Kind() == reflect.Struct || field.Type.Kind() == reflect.Ptr) {
-			info := peekStructInfo(field.Type)
+		// Reference tag-directive
+		if fieldCfg.isReference {
+			if info, err = peekStructInfo(field.Type); err != nil {
+				return nil, err
+			}
+			if len(info.pkFields) != 1 {
+				return nil, fmt.Errorf("structure of reference %s must have single PK field", field.Type.Name())
+			}
 			for _, fld := range info.pkFields {
 				fld.RefData = &fieldReference{
 					StructInfo: info,
@@ -158,19 +183,76 @@ func getFieldInfo(t reflect.Type) FieldInfoList {
 				}
 				fld.IsPK, fld.IsAutogen = false, false
 				fld.IsNullable = fld.IsNullable || field.Type.Kind() == reflect.Ptr
-				fld.applyIndex(field.Index)
 				fld.applyPrefix(fieldCfg.Name)
-				resultList = append(resultList, fld)
+				resultList = append(resultList, makeFieldInfo(field, fld.publicFldConfig))
 			}
 
 			continue
 		}
 
-		fi := makeFieldInfo(field, fieldCfg.publicFldConfig)
-		resultList = append(resultList, fi)
+		resultList = append(resultList, makeFieldInfo(field, fieldCfg.publicFldConfig))
 	}
 
-	return resultList
+	return resultList, nil
+}
+
+//nolint:gocognit
+func getFieldInfo(t reflect.Type) (resultList FieldInfoList, err error) {
+	resultList = make(FieldInfoList, 0, t.NumField())
+	for i := range t.NumField() {
+		var info *StructInfo
+		field := t.Field(i)
+		if !field.IsExported() {
+			continue // Пропускаем неэкспортируемые поля
+		}
+
+		fieldCfg := makeFieldConfig(field)
+
+		switch field.Type.Kind() {
+		case reflect.Ptr:
+			target := field.Type.Elem()
+			if target.Kind() != reflect.Struct {
+				break //switch
+			}
+			if info, err = peekStructInfo(target); err != nil {
+				return nil, err
+			}
+			if len(info.pkFields) != 1 {
+				return nil, fmt.Errorf("structure of reference %s must have single PK field", field.Type.Name())
+			}
+			for _, fld := range info.pkFields {
+				if fieldCfg.isReference {
+					fld.RefData = &fieldReference{
+						StructInfo: info,
+						FieldName:  fld.Name,
+					}
+				}
+				fld.IsPK, fld.IsAutogen = fieldCfg.IsPK, fieldCfg.IsAutogen
+				fld.IsNullable = true
+				fld.applyPrefix(fieldCfg.Name)
+				resultList = append(resultList, makeFieldInfo(field, fld.publicFldConfig))
+			}
+			continue
+		case reflect.Struct:
+			if !field.Anonymous && !fieldCfg.isInline {
+				break
+			}
+			if info, err = peekStructInfo(field.Type); err != nil {
+				return nil, err
+			}
+			for _, fld := range info.allFields {
+				fld.applyIndex(field.Index)
+				if fieldCfg.isInline {
+					fld.applyPrefix(fieldCfg.Name)
+				}
+				resultList = append(resultList, fld)
+			}
+			continue
+		}
+		resultList = append(resultList, makeFieldInfo(field, fieldCfg.publicFldConfig))
+	}
+
+	return resultList, nil
 }
 
 func makeFieldInfo(field reflect.StructField, cfg publicFldConfig) FieldInfo {
