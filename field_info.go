@@ -22,6 +22,7 @@ const (
 // FieldInfo - Сведения проецирования поля структуры на поле БД
 type FieldInfo struct {
 	publicFldConfig
+
 	Type  reflect.Type
 	index []int // Составной индекс поля в структуре
 }
