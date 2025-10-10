@@ -67,12 +67,12 @@ func (s *StructInfo) init(srcType reflect.Type) {
 			if _, ok := s.name2field[field.Name]; ok {
 				panic(fmt.Errorf("duplicate field name [%s]", field.Name))
 			}
-			if field.PK {
+			if field.IsPK {
 				s.pkFields = append(s.pkFields, field)
 			} else {
 				s.nonPkFields = append(s.nonPkFields, field)
 			}
-			if field.Autogen {
+			if field.IsAutogen {
 				s.autoFields = append(s.autoFields, field)
 			} else {
 				s.nonAutoFields = append(s.nonAutoFields, field)
@@ -110,11 +110,6 @@ func (s *StructInfo) TableName() string {
 	return s.tableName
 }
 
-func (s *StructInfo) PeekField(fieldName string) (fieldInfo FieldInfo, found bool) {
-	fieldInfo, found = s.name2field[fieldName]
-	return fieldInfo, found
-}
-
 func peekStructInfo(srcType reflect.Type) *StructInfo {
 	info := structInfoMap.GetOrPut(srcType, func() *StructInfo { return &StructInfo{} })
 	info.init(srcType)
@@ -123,7 +118,7 @@ func peekStructInfo(srcType reflect.Type) *StructInfo {
 }
 
 //nolint:gocognit
-func getFieldInfo(t reflect.Type) FieldInfoList {
+func getFieldInfo(t reflect.Type) (list FieldInfoList) {
 	resultList := make(FieldInfoList, 0, t.NumField())
 	for i := range t.NumField() {
 		field := t.Field(i)
@@ -142,7 +137,8 @@ func getFieldInfo(t reflect.Type) FieldInfoList {
 		}
 
 		fieldCfg := makeFieldConfig(field)
-		if fieldCfg.Inline && field.Type.Kind() == reflect.Struct {
+
+		if fieldCfg.isInline && field.Type.Kind() == reflect.Struct {
 			info := peekStructInfo(field.Type)
 			for _, fld := range info.allFields {
 				fld.applyIndex(field.Index)
@@ -153,32 +149,35 @@ func getFieldInfo(t reflect.Type) FieldInfoList {
 			continue
 		}
 
-		if fieldCfg.Reference && (field.Type.Kind() == reflect.Struct || field.Type.Kind() == reflect.Ptr) {
+		if fieldCfg.isReference && (field.Type.Kind() == reflect.Struct || field.Type.Kind() == reflect.Ptr) {
 			info := peekStructInfo(field.Type)
-			for _, fld := range info.allFields {
-				if !fld.PK {
-					continue
+			for _, fld := range info.pkFields {
+				fld.RefData = &fieldReference{
+					StructInfo: info,
+					FieldName:  fld.Name,
 				}
-				fld.Nullable = fld.Nullable || field.Type.Kind() == reflect.Ptr
+				fld.IsPK, fld.IsAutogen = false, false
+				fld.IsNullable = fld.IsNullable || field.Type.Kind() == reflect.Ptr
 				fld.applyIndex(field.Index)
+				fld.applyPrefix(fieldCfg.Name)
 				resultList = append(resultList, fld)
 			}
 
 			continue
 		}
 
-		fi := makeFieldInfo(field, fieldCfg)
+		fi := makeFieldInfo(field, fieldCfg.publicFldConfig)
 		resultList = append(resultList, fi)
 	}
 
 	return resultList
 }
 
-func makeFieldInfo(field reflect.StructField, cfg fieldConfig) FieldInfo {
+func makeFieldInfo(field reflect.StructField, cfg publicFldConfig) FieldInfo {
 	result := FieldInfo{
-		index:       field.Index,
-		fieldConfig: cfg,
-		Type:        field.Type,
+		publicFldConfig: cfg,
+		Type:            field.Type,
+		index:           field.Index,
 	}
 	if result.Name == "" {
 		result.Name = dot.ToSnakeCase(field.Name)
