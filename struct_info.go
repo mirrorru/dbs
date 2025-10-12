@@ -172,7 +172,7 @@ func getFieldInfo(t reflect.Type) (resultList FieldInfoList, err error) {
 			}
 			continue
 		case reflect.Struct:
-			if !field.Anonymous && !fieldCfg.isInline {
+			if !field.Anonymous && !fieldCfg.isInline && !fieldCfg.isReference {
 				break
 			}
 			if info, err = peekStructInfo(field.Type); err != nil {
@@ -180,9 +180,17 @@ func getFieldInfo(t reflect.Type) (resultList FieldInfoList, err error) {
 			}
 			for _, fld := range info.allFields {
 				fld.applyIndex(field.Index)
-				if fieldCfg.isInline {
+				if fieldCfg.isInline || fieldCfg.isReference {
 					fld.applyPrefix(fieldCfg.Name)
 				}
+				if fieldCfg.isReference {
+					fld.RefData = &fieldReference{
+						StructInfo: info,
+						FieldName:  fld.Name,
+					}
+					fld.IsPK, fld.IsAutogen = fieldCfg.IsPK, fieldCfg.IsAutogen
+				}
+
 				resultList = append(resultList, fld)
 			}
 			continue
