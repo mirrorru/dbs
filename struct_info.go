@@ -118,6 +118,11 @@ func (s *StructInfo) TableName() string {
 	return s.tableName
 }
 
+func (s *StructInfo) PeekField(fieldName string) (fieldInfo FieldInfo, found bool) {
+	fieldInfo, found = s.name2field[fieldName]
+	return fieldInfo, found
+}
+
 func peekStructInfo(srcType reflect.Type) (*StructInfo, error) {
 	if srcType.Kind() != reflect.Struct {
 		return nil, errStructBasedTypeNeeded
