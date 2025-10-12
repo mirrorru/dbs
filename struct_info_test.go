@@ -24,7 +24,6 @@ type somePrivateData struct {
 
 type SubKey struct {
 	ID1 int64 `dbs:"auto;pk"`
-	//ID2 int64 `dbs:"auto;pk"`
 }
 
 func (*SubKey) TableName() string {
@@ -48,6 +47,7 @@ type SomeRec struct {
 	SomeKey
 	SomeBody
 	somePrivateData
+
 	Solid     SubRec // solid field info, need own Scan & Value methods for database/sql
 	Inline    SubRec `dbs:"inline"` // field info exploding to subfields
 	Ptr       *SubKey
@@ -81,19 +81,19 @@ func TestStructInfoTableName(t *testing.T) {
 
 	si, err = dbs.NewStructInfo(SomeRec{})
 	require.NoError(t, err)
-	assert.Equal(t, si.TableName(), "some_rec")
+	assert.Equal(t, "some_rec", si.TableName())
 
 	si, err = dbs.NewStructInfo(&SomeRec{})
 	require.NoError(t, err)
-	assert.Equal(t, si.TableName(), "some_rec")
+	assert.Equal(t, "some_rec", si.TableName())
 
 	si, err = dbs.NewStructInfo(SubRec{})
 	require.NoError(t, err)
-	assert.Equal(t, si.TableName(), subRecTableName)
+	assert.Equal(t, subRecTableName, si.TableName())
 
 	si, err = dbs.NewStructInfo(&SubRec{})
 	require.NoError(t, err)
-	assert.Equal(t, si.TableName(), subRecTableName)
+	assert.Equal(t, subRecTableName, si.TableName())
 }
 
 func TestStructInfo_FieldInfoList_Refs(t *testing.T) {
