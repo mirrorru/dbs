@@ -23,7 +23,7 @@ type somePrivateData struct {
 }
 
 type SubKey struct {
-	ID1 int64 `dbs:"auto;pk"`
+	ID int64 `dbs:"auto;pk"`
 }
 
 func (*SubKey) TableName() string {
@@ -107,10 +107,10 @@ func TestStructInfo_FieldInfoList_Refs(t *testing.T) {
 	assert.Equal(t, []any{
 		&rec.ID, &rec.Kind, &rec.Name,
 		&rec.Solid,
-		&rec.Inline.ID1, &rec.Inline.Kind, &rec.Inline.Name,
+		&rec.Inline.ID, &rec.Inline.Kind, &rec.Inline.Name,
 		&rec.Ptr,
 		&rec.RefPtr,
-		&rec.RefStruct,
+		&rec.RefStruct.ID,
 		&rec.AuxField,
 	}, refs, "AllFields()")
 
