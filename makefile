@@ -38,3 +38,11 @@ lint: ## code checks with golangci
 		--max-same-issues=50 \
 		./...
 
+.PHONY: lint-full
+lint-full: ## code checks with golangci
+	clear
+	$(LOCAL_BIN)/golangci-lint run \
+		--config=.golangci.yaml \
+		--max-issues-per-linter=100 \
+		--max-same-issues=50 \
+

@@ -80,6 +80,8 @@ func makeFieldConfig(field reflect.StructField) jointFieldConfig {
 	if result.Name == "" {
 		result.Name = dot.ToSnakeCase(field.Name)
 	}
+	result.IsNullable = result.IsNullable || field.Type.Kind() == reflect.Ptr
+
 	return result
 }
 
@@ -119,7 +121,10 @@ func (fil FieldInfoList) Refs(refSource any) (result []any, err error) {
 		return nil, errStructBasedTypeNeeded
 	}
 
-	refDefs := peekStructInfo(rv.Type())
+	refDefs, err := peekStructInfo(rv.Type())
+	if err != nil {
+		return nil, err
+	}
 	for idx := range fil {
 		refField, ok := refDefs.name2field[fil[idx].Name]
 		if !ok {

@@ -32,15 +32,15 @@ type TestRec struct {
 }
 
 func testRecAllRefs(rec *TestRec) []any {
-	return []any{&rec.TestKey.ID, &rec.TestBody.Kind, &rec.TestBody.Name, &rec.AuxField}
+	return []any{&rec.ID, &rec.Kind, &rec.Name, &rec.AuxField}
 }
 
 func testRecPKRefs(rec *TestRec) []any {
-	return []any{&rec.TestKey.ID}
+	return []any{&rec.ID}
 }
 
 func testRecNonPKRefs(rec *TestRec) []any {
-	return []any{&rec.TestBody.Kind, &rec.TestBody.Name, &rec.AuxField}
+	return []any{&rec.Kind, &rec.Name, &rec.AuxField}
 }
 
 func Test_ArgsAndReceivers(t *testing.T) {
