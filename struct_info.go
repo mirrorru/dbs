@@ -179,6 +179,9 @@ func getFieldInfo(t reflect.Type) (resultList FieldInfoList, err error) {
 				return nil, err
 			}
 			for _, fld := range info.allFields {
+				if fieldCfg.isReference && !fld.IsPK {
+					continue
+				}
 				fld.applyIndex(field.Index)
 				if fieldCfg.isInline || fieldCfg.isReference {
 					fld.applyPrefix(fieldCfg.Name)
